@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     
-    name      : "thermal_camera",
+    name      : "swift-thermal_camera",
     platforms : [ .iOS("15.2") ],
     products  :
         [
@@ -15,8 +15,8 @@ let package = Package(
         ],
     dependencies:
         [
-            .package(url: "https://github.com/maurovm/sensor_recording_utils", .branch("master")),
-            .package(path: "../ios_thermal_sdk")
+            .package(url: "https://github.com/maurovm/swift-sensor_recording_utils", .branch("master")),
+            .package(path: "../swift-ios_thermal_sdk")
         ],
     targets:
         [
@@ -24,8 +24,8 @@ let package = Package(
                 name         : "ThermalCamera",
                 dependencies :
                     [
-                        .product(name: "SensorRecordingUtils", package: "sensor_recording_utils"),
-                        .product(name: "iOSThermalSDK", package: "ios_thermal_sdk")
+                        .product(name: "SensorRecordingUtils", package: "swift-sensor_recording_utils"),
+                        .product(name: "iOSThermalSDK", package: "swift-ios_thermal_sdk")
                     ],
                 path         : "Sources"
             )
