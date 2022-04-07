@@ -16,7 +16,7 @@ let package = Package(
     dependencies:
         [
             .package(url: "https://github.com/maurovm/sensor_recording_utils", .branch("master")),
-            .package(path: "../FLIRThermalSDK")
+            .package(path: "../ios_thermal_sdk")
         ],
     targets:
         [
@@ -25,7 +25,7 @@ let package = Package(
                 dependencies :
                     [
                         .product(name: "SensorRecordingUtils", package: "sensor_recording_utils"),
-                        "FLIRThermalSDK"
+                        .product(name: "iOSThermalSDK", package: "ios_thermal_sdk")
                     ],
                 path         : "Sources"
             )
