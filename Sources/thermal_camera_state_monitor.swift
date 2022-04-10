@@ -385,35 +385,34 @@ final public class Thermal_camera_state_monitor
         
         let wait_time_between_attempts : TimeInterval = 1
         
-        repeat
+        
+        while (Task.isCancelled == false)    &&
+              (camera_service.is_connected == false)
         {
-
+            device_state_message = "Thermal camera not connected, searching ..."
+            
             do
             {
-                //try await Task.sleep(seconds: wait_time_between_attempts)
+                try await camera_service.connect()
                 
-                device_state_message = "Thermal camera not connected, searching ..."
-                
-                if camera_service.is_connected == false
-                {
-                    try await Task.sleep(seconds: wait_time_between_attempts)
-                    try await camera_service.connect()
-                }
-                
-                if camera_service.is_connected
-                {
-                    device_state_message = "Thermal camera connected, waiting " +
-                                           "to receive battery status ..."
-                }
-                
+                device_state_message = "Thermal camera connected, waiting " +
+                                       "to receive battery status ..."
             }
             catch
             {
+                if Task.isCancelled == false
+                {
+                    do
+                    {
+                        try await Task.sleep(seconds: wait_time_between_attempts)
+                    }
+                    catch
+                    {
+                    }
+                }
             }
 
         }
-        while (Task.isCancelled == false)    &&
-              (camera_service.is_connected == false)
 
     }
     
