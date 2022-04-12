@@ -1,5 +1,5 @@
 /**
- * \file    camera_service_delegate.swift
+ * \file    video_camera_delegate.swift
  * \author  Mauricio Villarroel
  * \date    Created: Mar 18, 2022
  * ____________________________________________________________________________
@@ -16,7 +16,7 @@ import SensorRecordingUtils
 
 
 
-final class Camera_service_delegate :
+final class Video_camera_delegate :
         NSObject,
         FLIRDiscoveryEventDelegate,
         FLIRDataReceivedDelegate,
@@ -37,6 +37,7 @@ final class Camera_service_delegate :
     
     init(
             device_identifier    : Device.ID_type,
+            manager_event        : Device_manager_event  = .not_set,
             battery_percentage   : Int                   = 0,
             battery_state        : UIDevice.BatteryState = .unknown,
             camera_state         : Camera_state          = .unknown,
@@ -45,15 +46,11 @@ final class Camera_service_delegate :
     {
         
         self.device_identifier  = device_identifier
+        self.manager_event      = manager_event
         self.battery_percentage = battery_percentage
         self.battery_state      = battery_state
         self.camera_state       = camera_state
         self.shutter_state      = shutter_state
-        
-        manager_event = .recording_state_update(
-                device_id : device_identifier,
-                state     : .disconnected
-            )
         
         super.init()
         

@@ -30,46 +30,30 @@ final public class Thermal_camera_state_monitor
     
     public var is_connected : Bool
     {
-        camera_service.is_connected
+        video_camera.is_connected
     }
     
     
     public init(
-            //battery_percentage_value : Int      = 0,
-            //battery_state_value  : UIDevice.BatteryState = .unknown,
-            camera_state         : Camera_state          = .unknown,
-            shutter_state        : FLIRShutterState      = .on
+            camera_state   : Camera_state     = .unknown,
+            shutter_state  : FLIRShutterState = .on
         )
     {
-     
-//        print("Thermal_camera_state : init")
-        
-        let device_id = Recording_manager.camera_identifier
         
         self.camera_state  = camera_state
         self.shutter_state = shutter_state
         
-        device_identifier = device_id
+        self.device_identifier = Recording_manager.camera_identifier
         
-        delegate = Camera_service_delegate(
-                device_identifier  : device_id
-            )
-                
-        camera_service = Video_camera(
-                device_identifier : device_id,
-                delegate          : delegate
-            )
+        video_camera = Video_camera(device_identifier : device_identifier)
         
         
         // Subscribe to events from the thermal camera
         
         
-        delegate.$camera_state.assign(to: &$camera_state)
+        video_camera.$device_state_message.assign(to: &$device_state_message)
         
-        camera_service.$device_state_message.assign(to: &$device_state_message)
-        
-        
-        delegate.$manager_event
+        video_camera.$manager_event
             .sink
             {
                 [weak self] event in
@@ -79,7 +63,7 @@ final public class Thermal_camera_state_monitor
             .store(in: &state_changes_subscriptions)
         
         
-        delegate.$battery_percentage
+        video_camera.$battery_percentage
             .sink
             {
                 [weak self] value in
@@ -89,7 +73,7 @@ final public class Thermal_camera_state_monitor
             .store(in: &state_changes_subscriptions)
         
         
-        delegate.$battery_state
+        video_camera.$battery_state
             .sink
             {
                 [weak self] value in
@@ -98,22 +82,7 @@ final public class Thermal_camera_state_monitor
             }
             .store(in: &state_changes_subscriptions)
         
-    }
-    
-    
-    deinit
-    {
-        
-//        print("Thermal_camera_state : deinit")
-        
-        for ui_subscription in state_changes_subscriptions
-        {
-            ui_subscription.cancel()
-        }
-        
-        state_changes_subscriptions.removeAll()
-        
-        stop()
+        video_camera.$camera_state.assign(to: &$camera_state)
         
     }
     
@@ -124,32 +93,8 @@ final public class Thermal_camera_state_monitor
     public func start()
     {
         
-        if is_connected  ||  ( connection_task != nil )
-        {
-            return
-        }
-        
-        
-        keep_alive_flag      = true
-        
-        connection_task?.cancel()
-        
-        device_state_message = nil
-        battery_percentage   = nil
-        battery_state        = nil
-        
-        
-        connection_task = Task
-        {
-            [weak self] in
-
-            await self?.connect_to_camera()
-        }
-        
-        if watchdog_timer == nil
-        {
-            start_watchdog_timer()
-        }
+        keep_alive_flag = true
+        restart_camera_if_disconnected()
 
     }
     
@@ -158,10 +103,7 @@ final public class Thermal_camera_state_monitor
     {
         
         keep_alive_flag = false
-        
-        stop_watchdog_timer()
         disconnect()
-        
         device_state_message = "Thermal camera disconnected"
         
     }
@@ -174,62 +116,37 @@ final public class Thermal_camera_state_monitor
      * Unique identifier for the device.
      */
     private let device_identifier : Device.ID_type
-    private let delegate          : Camera_service_delegate
-    private var camera_service    : Video_camera
+    private var video_camera      : Video_camera
     private var keep_alive_flag   : Bool = false
     
-    private var connection_task         : Task<Void, Never>? = nil
+    private var connection_task   : Task<Bool, Never>? = nil
+    private var is_connecting     : Bool = false
     
     private var state_changes_subscriptions = Set<AnyCancellable>()
-    
-    
-    private var watchdog_timer : AnyCancellable? = nil
-    
-    private let watchdog_timer_interval : TimeInterval = 10.0
     
     
     // MARK: - Private interface
     
     
-    private func start_watchdog_timer()
-    {
-        
-        watchdog_timer = Timer.publish(
-                every : watchdog_timer_interval,
-                on    : .current,
-                in    : .common
-            )
-            .autoconnect()
-            .sink
-            {
-                [weak self] _ in
-                
-                self?.restart_camera_if_disconnected()
-            }
-        
-    }
-    
-    
-    private func stop_watchdog_timer()
-    {
-        
-        watchdog_timer?.cancel()
-        watchdog_timer = nil
-        
-    }
-    
-    
     private func restart_camera_if_disconnected()
     {
         
-        
-        if keep_alive_flag  &&  (is_connected == false)
+        if keep_alive_flag          &&
+           (is_connected == false)  &&
+           (is_connecting == false)
         {
-            disconnect()
-            device_state_message = "Timeout, reconnecting ..."
-            start()
+            
+            connection_task = Task
+            {
+                [weak self] in
+                
+                guard let self = self else { return false }
+
+                await self.connect_to_camera()
+                
+                return self.is_connected
+            }
         }
-        
         
     }
     
@@ -241,6 +158,10 @@ final public class Thermal_camera_state_monitor
         
         switch event
         {
+                
+            case .not_set:
+                
+                reconnect_flag = false
 
             case .recording_state_update(_ , _):
                 
@@ -263,6 +184,7 @@ final public class Thermal_camera_state_monitor
                     """
                     )
                 
+                disconnect()
                 reconnect_flag = true
                 
 
@@ -280,6 +202,7 @@ final public class Thermal_camera_state_monitor
                     """
                     )
                 
+                disconnect()
                 reconnect_flag = true
                 
                 
@@ -297,6 +220,7 @@ final public class Thermal_camera_state_monitor
                     """
                     )
                 
+                disconnect()
                 reconnect_flag = true
                 
                 
@@ -315,6 +239,7 @@ final public class Thermal_camera_state_monitor
                     """
                     )
                 
+                disconnect()
                 reconnect_flag = true
                 
         }
@@ -322,8 +247,17 @@ final public class Thermal_camera_state_monitor
         
         if reconnect_flag  &&  keep_alive_flag
         {
-            disconnect()
-            start()
+            device_state_message = "Thermal camera not connected, searching ..."
+            
+            Task
+            {
+                if let task = connection_task
+                {
+                    let _ = await task.value
+                }
+                
+                restart_camera_if_disconnected()
+            }
         }
         
     }
@@ -332,12 +266,12 @@ final public class Thermal_camera_state_monitor
     private func disconnect()
     {
                 
+        device_state_message = "Disconnecting from thermal camera..."
+        
         connection_task?.cancel()
-        connection_task = nil
+        video_camera.disconnect()
         
-        camera_service.disconnect()
-        
-        device_state_message = nil
+        device_state_message = "Disconnected from thermal camera"
         battery_percentage   = nil
         battery_state        = nil
         
@@ -385,23 +319,32 @@ final public class Thermal_camera_state_monitor
         
         let wait_time_between_attempts : TimeInterval = 1
         
+        device_state_message = nil
+        battery_percentage   = nil
+        battery_state        = nil
+        
+        is_connecting = true
         
         while (Task.isCancelled == false)    &&
-              (camera_service.is_connected == false)
+              (video_camera.is_connected == false) &&
+              keep_alive_flag
         {
+            
             device_state_message = "Thermal camera not connected, searching ..."
             
             do
             {
-                try await camera_service.connect()
+                try await video_camera.connect()
                 
                 device_state_message = "Thermal camera connected, waiting " +
                                        "to receive battery status ..."
             }
             catch
             {
-                if Task.isCancelled == false
+                if Task.isCancelled == false  &&  keep_alive_flag
                 {
+                    video_camera.disconnect()
+                    
                     do
                     {
                         try await Task.sleep(seconds: wait_time_between_attempts)
@@ -413,6 +356,8 @@ final public class Thermal_camera_state_monitor
             }
 
         }
+        
+        is_connecting = false
 
     }
     

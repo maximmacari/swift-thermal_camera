@@ -113,15 +113,14 @@ public final class Recording_manager : Device_manager
         
         thermal_actor = Thermal_streamer_actor(Self.camera_identifier)
         
-        camera_delegate = Camera_service_delegate(
+        video_camera = Video_camera(
                 device_identifier  : Self.camera_identifier,
+                thermal_actor      : thermal_actor,
                 battery_percentage : battery_percentage,
                 battery_state      : battery_state,
                 camera_state       : camera_state,
                 shutter_state      : shutter_state
             )
-        
-        
         
         
         if display_enabled
@@ -138,10 +137,9 @@ public final class Recording_manager : Device_manager
         }
         
         
-        
-        
         super.init(
                 identifier   : Self.camera_identifier,
+                sensor_type  : .video_camera,
                 settings     : self.settings,
                 orientation  : orientation,
                 preview_mode : preview_mode,
@@ -150,16 +148,19 @@ public final class Recording_manager : Device_manager
             )
         
      
-        camera_delegate.$manager_event.receive(on: RunLoop.main)
+        video_camera.$device_state_message.receive(on: RunLoop.main)
+           .assign(to: &$device_state_message)
+        
+        video_camera.$manager_event.receive(on: RunLoop.main)
             .assign(to: &$manager_event)
         
-        camera_delegate.$battery_percentage.receive(on: RunLoop.main)
+        video_camera.$battery_percentage.receive(on: RunLoop.main)
            .assign(to: &$battery_percentage)
         
-        camera_delegate.$battery_state.receive(on: RunLoop.main)
+        video_camera.$battery_state.receive(on: RunLoop.main)
            .assign(to: &$battery_state)
         
-        camera_delegate.$camera_state.receive(on: RunLoop.main)
+        video_camera.$camera_state.receive(on: RunLoop.main)
            .assign(to: &$camera_state)
         
     }
@@ -176,24 +177,9 @@ public final class Recording_manager : Device_manager
     public override func device_connect(recording_path: URL) async throws
     {
         
-        //
-        // Initialise the core objects
-        //
-        
-        
         output_folder_path = recording_path
         
-        camera_service = Video_camera(
-                device_identifier : identifier,
-                delegate          : camera_delegate,
-                thermal_actor     : thermal_actor
-            )
-        
-        camera_service?.$device_state_message.receive(on: RunLoop.main)
-           .assign(to: &$device_state_message)
-        
-        
-        try await camera_service?.connect()
+        try await video_camera.connect()
         
         // Set the device manager as connected here, so we can later
         // gracefully disconnect from the FLIR camera as part of the
@@ -201,7 +187,7 @@ public final class Recording_manager : Device_manager
         
         set_device_connected()
         
-        try await camera_service?.configure_for_data_stream(frame_rate: recording_frame_rate)
+        try await video_camera.configure_for_data_stream(frame_rate: recording_frame_rate)
         
     }
     
@@ -232,7 +218,7 @@ public final class Recording_manager : Device_manager
         flir_recording_task?.cancel()
         flir_recording_task = nil
         
-        await camera_service?.stop_data_stream()
+        await video_camera.stop_data_stream()
         await thermal_actor.end_camera_stream()
         
         is_recording = false
@@ -243,15 +229,14 @@ public final class Recording_manager : Device_manager
     public override func device_disconnect() async throws
     {
         
-        camera_service?.disconnect()
+        video_camera.disconnect()
         
         for ui_subscription in ui_changes_subscriptions
         {
             ui_subscription.cancel()
         }
-        ui_changes_subscriptions.removeAll()
         
-        camera_service  = nil
+        ui_changes_subscriptions.removeAll()
         
     }
     
@@ -264,9 +249,8 @@ public final class Recording_manager : Device_manager
      */
     private let settings = Recording_settings()
     
-    private let thermal_actor   : Thermal_streamer_actor
-    private let camera_delegate : Camera_service_delegate
-    private var camera_service  : Video_camera? = nil
+    private let thermal_actor : Thermal_streamer_actor
+    private var video_camera  : Video_camera
         
     /**
      * The collection of subscriptions to publishers for events from the UI
@@ -343,12 +327,6 @@ public final class Recording_manager : Device_manager
     
     private func start_data_stream() async
     {
-        guard let camera = camera_service
-            else
-            {
-                return
-            }
-        
         
         do
         {
@@ -357,7 +335,7 @@ public final class Recording_manager : Device_manager
             
             // Start receiving image frames
             
-            for try await frame_sequence in camera.start_data_stream()
+            for try await frame_sequence in video_camera.start_data_stream()
             {
                 
                 if Task.isCancelled
@@ -414,13 +392,6 @@ public final class Recording_manager : Device_manager
                     description : description
                 )
             
-        }
-        catch let error as Device.Recording_error
-        {
-            //throw error
-            print("\(Date()) : \(String(describing: Self.self)) : \(#function) : " +
-                  "Recording_error = \(error) : " + error.localizedDescription
-                )
         }
         catch
         {

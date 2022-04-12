@@ -23,6 +23,16 @@ final class Video_camera
     
     @Published private(set) var device_state_message : String? = nil
     
+    @Published private(set) var manager_event : Device_manager_event
+    
+    @Published private(set) var battery_percentage : Int
+    
+    @Published private(set) var battery_state : UIDevice.BatteryState
+    
+    @Published private(set) var camera_state  : Camera_state
+    
+    @Published private(set) var shutter_state : FLIRShutterState
+    
     
     var is_connected : Bool
     {
@@ -31,18 +41,44 @@ final class Video_camera
     
     
     init(
-            device_identifier : Device.ID_type,
-            delegate          : Camera_service_delegate,
-            thermal_actor     : Thermal_streamer_actor?  = nil
+            device_identifier    : Device.ID_type,
+            thermal_actor        : Thermal_streamer_actor?  = nil,
+            manager_event        : Device_manager_event  = .not_set,
+            battery_percentage   : Int                   = 0,
+            battery_state        : UIDevice.BatteryState = .unknown,
+            camera_state         : Camera_state          = .unknown,
+            shutter_state        : FLIRShutterState      = .on
         )
     {
         
-        self.device_identifier = device_identifier
-        self.thermal_actor     = thermal_actor
-        self.delegate          = delegate
-                        
+        self.device_identifier  = device_identifier
+        self.manager_event      = manager_event
+        self.battery_percentage = battery_percentage
+        self.battery_state      = battery_state
+        self.camera_state       = camera_state
+        self.shutter_state      = shutter_state
+        self.thermal_actor      = thermal_actor
+        
+        delegate = Video_camera_delegate(
+                device_identifier  : device_identifier,
+                battery_percentage : battery_percentage,
+                battery_state      : battery_state,
+                camera_state       : camera_state,
+                shutter_state      : shutter_state
+            )
+        
         camera = FLIRCamera()
         camera.delegate = delegate
+        
+        discovery_session = FLIRDiscovery()
+        discovery_session.delegate = delegate
+        
+        
+        delegate.$manager_event.assign(to: &$manager_event)
+        delegate.$battery_percentage.assign(to: &$battery_percentage)
+        delegate.$battery_state.assign(to: &$battery_state)
+        delegate.$camera_state.assign(to: &$camera_state)
+        delegate.$shutter_state.assign(to: &$shutter_state)
         
     }
     
@@ -57,23 +93,23 @@ final class Video_camera
     
     func connect() async throws
     {
-
-        let discovery_session = FLIRDiscovery()
-        discovery_session.delegate = delegate
         
         defer
         {
             discovery_session.stop()
         }
         
-        let identity = try await discover_camera_identity(discovery_session)
-        
-        try await connect_to_camera(with_identity: identity)
+        if is_connected == false
+        {
+            let identity = try await discover_camera_identity()
+            try await connect_to_camera(with_identity: identity)
+        }
         
         await wait_until_camera_is_ready()
         
         let control     = try await initialise_remote_control()
         let calibration = try await disable_NUC(control)
+        
         try subscribe_to_shutter_state_changes(calibration)
         try subscribe_to_battery_state_changes(control)
         try subscribe_to_camera_state_changes(control)
@@ -121,7 +157,7 @@ final class Video_camera
                 guard let data_stream = camera_stream
                     else
                     {
-                        throw Device.Recording_error.failed_to_start(
+                        throw Device.Start_recording_error.failed_to_start(
                                 device_id   : device_identifier,
                                 description : "No data stream were configured"
                             )
@@ -129,7 +165,7 @@ final class Video_camera
                 
                 if data_stream.isStreaming
                 {
-                    throw Device.Recording_error.failed_to_start(
+                    throw Device.Start_recording_error.failed_to_start(
                             device_id   : device_identifier,
                             description : "Data stream is already in progress"
                         )
@@ -140,13 +176,13 @@ final class Video_camera
                 try data_stream.start()
                 
             }
-            catch let error as Device.Recording_error
+            catch let error as Device.Start_recording_error
             {
                 continuation.finish(throwing: error)
             }
             catch
             {
-                let error = Device.Recording_error.failed_to_start(
+                let error = Device.Start_recording_error.failed_to_start(
                         device_id   : device_identifier,
                         description : "Data stream start error " +
                                       error.localizedDescription
@@ -202,8 +238,10 @@ final class Video_camera
      * Unique identifier for the device.
      */
     private let device_identifier  : Device.ID_type
-    private let delegate           : Camera_service_delegate
-    private var camera             : FLIRCamera
+    private let delegate           : Video_camera_delegate
+    private let camera             : FLIRCamera
+    private let discovery_session  : FLIRDiscovery
+    
             
     private var image_sequence   : UInt64 = 0
     
@@ -220,9 +258,7 @@ final class Video_camera
     // MARK: - Private interface
     
     
-    private func discover_camera_identity(
-            _  session : FLIRDiscovery
-        ) async throws -> FLIRIdentity
+    private func discover_camera_identity() async throws -> FLIRIdentity
     {
         
         device_state_message = "Searching for thermal camera ..."
@@ -233,7 +269,7 @@ final class Video_camera
             [weak self] in
             
             self?.device_state_message = "Cancelling searching for camera ..."
-            session.stop()
+            discovery_session.stop()
             self?.delegate.cancel_camera_discovery()
             
         }
@@ -253,7 +289,7 @@ final class Video_camera
                 do
                 {
                     
-                    if  session.isDiscovering()
+                    if  discovery_session.isDiscovering()
                     {
                         throw Device.Connect_error.failed_to_connect_to_device(
                                 device_id   : self.device_identifier,
@@ -263,7 +299,7 @@ final class Video_camera
                     }
                     
                     self.delegate.set_camera_discovery_continuation(continuation)
-                    session.start(.lightning)
+                    discovery_session.start(.lightning)
                     
                 }
                 catch let error as Device.Connect_error
@@ -477,8 +513,9 @@ final class Video_camera
         
         var connection_attempt = 1
         let wait_time_between_attempts : TimeInterval = 0.5
-                
-        repeat
+             
+        
+        while (Task.isCancelled == false)
         {
             if let control = camera.getRemoteControl()  ,
                control.getCameraReady() == .READY
@@ -499,7 +536,6 @@ final class Video_camera
             {
             }
         }
-        while (Task.isCancelled == false)
 
     }
     
