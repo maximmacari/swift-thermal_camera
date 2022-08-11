@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     
     name      : "swift-thermal_camera",
-    platforms : [ .iOS("15.4") ],
+    platforms : [ .iOS("15.5") ],
     products  :
         [
             .library(
