@@ -4,6 +4,16 @@
 Swift Package providing the functionality to record video data from thermal 
 cameras such as the FLIR one Pro-series.
 
+
+### Note for the FLIR One camera:
+
+ The FLIR One camera (and its SDK) was not designed to record video. This 
+ limitation is enforced by FLIR's hardware/software. The only option they 
+ enabled is to take snapshots at a maximum rate of 9 frames per second (FPS).
+ Therefore, this Swift package records every frame as a separate image file at
+ the maximum FPS. Each image file has the image data from both the 
+ red-green-blue (RGB) camera and the radiometric data from the thermal imager.
+
 ---
 
 ThermalCamera is free software: you can redistribute it or modify it under the
