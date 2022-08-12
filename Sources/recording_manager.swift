@@ -58,10 +58,10 @@ public final class Recording_manager : Device_manager
      * Class initialisation
      */
     public init(
-            orientation          : UIDeviceOrientation,
-            preview_mode         : Device.Content_mode,
-            device_state         : Device.Recording_state,
-            connection_timeout   : Double,
+            orientation   : UIDeviceOrientation,
+            preview_mode  : Device.Content_mode     = .scale_to_fill,
+            device_state  : Device.Recording_state  = .disconnected,
+            connection_timeout   : Double   = 10.0,
             device_state_message : String?  = nil,
             max_temperature      : Double   = 40.0,
             min_temperature      : Double   = 20.0,

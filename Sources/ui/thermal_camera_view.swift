@@ -237,13 +237,12 @@ struct FLIR_view_Previews: PreviewProvider
         
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation        : .landscapeLeft,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .disconnected,
-                    connection_timeout : 10
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation  : .landscapeLeft,
+                            device_state : .disconnected
+                        )
                 )
-            Thermal_camera_view( manager )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
@@ -253,88 +252,26 @@ struct FLIR_view_Previews: PreviewProvider
         
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation        : .landscapeLeft,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .connecting,
-                    connection_timeout : 10
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation  : .landscapeLeft,
+                            device_state : .connecting
+                        )
                 )
-            Thermal_camera_view( manager )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
         .navigationViewStyle(.stack)
         .previewInterfaceOrientation(.landscapeRight)
         
-        
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation          : .landscapeLeft,
-                    preview_mode         : .scale_to_fill,
-                    device_state         : .connecting,
-                    connection_timeout   : 10,
-                    device_state_message : "Discovering camera ..."
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation  : .landscapeRight,
+                            device_state : .connecting
+                        )
                 )
-            Thermal_camera_view( manager )
-                .hide_navigation_interface()
-                .ignoresSafeArea()
-        }
-        .navigationViewStyle(.stack)
-        .previewInterfaceOrientation(.landscapeRight)
-
-
-        NavigationView
-        {
-            let manager = Recording_manager(
-                    orientation          : .landscapeLeft,
-                    preview_mode         : .scale_to_fill,
-                    device_state         : .connecting,
-                    connection_timeout   : 10,
-                    device_state_message : "Waiting for camera to be ready ..."
-                )
-            Thermal_camera_view( manager )
-                .hide_navigation_interface()
-                .ignoresSafeArea()
-        }
-        .navigationViewStyle(.stack)
-        .previewInterfaceOrientation(.portrait)
-
-
-        NavigationView
-        {
-            let manager = Recording_manager(
-                    orientation        : .landscapeLeft,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .streaming,
-                    connection_timeout : 10,
-                    max_temperature    : 39.7,
-                    min_temperature    : 28.4,
-                    default_image      : image,
-                    battery_percentage : 100,
-                    camera_state       : .cooling
-                )
-            Thermal_camera_view( manager )
-                .hide_navigation_interface()
-                .ignoresSafeArea()
-        }
-        .navigationViewStyle(.stack)
-        .previewInterfaceOrientation(.landscapeRight)
-
-
-        NavigationView
-        {
-            let manager = Recording_manager(
-                    orientation        : .landscapeRight,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .streaming,
-                    connection_timeout : 10,
-                    max_temperature    : 39.7,
-                    min_temperature    : 28.4,
-                    default_image      : image,
-                    battery_percentage : 75
-                )
-            Thermal_camera_view( manager )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
@@ -344,17 +281,13 @@ struct FLIR_view_Previews: PreviewProvider
 
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation        : .portrait,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .streaming,
-                    connection_timeout : 10,
-                    max_temperature    : 39.7,
-                    min_temperature    : 28.4,
-                    default_image      : image,
-                    battery_percentage : 75
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation          : .portrait,
+                            device_state         : .connecting,
+                            device_state_message : "Waiting for camera to be ready ..."
+                        )
                 )
-            Thermal_camera_view( manager )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
@@ -364,13 +297,17 @@ struct FLIR_view_Previews: PreviewProvider
 
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation        : .landscapeLeft,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .stopping,
-                    connection_timeout : 10
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation        : .landscapeLeft,
+                            device_state       : .streaming,
+                            max_temperature    : 39.7,
+                            min_temperature    : 28.4,
+                            default_image      : image,
+                            battery_percentage : 100,
+                            camera_state       : .cooling
+                        )
                 )
-            Thermal_camera_view( manager )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
@@ -380,13 +317,65 @@ struct FLIR_view_Previews: PreviewProvider
 
         NavigationView
         {
-            let manager = Recording_manager(
-                    orientation        : .landscapeLeft,
-                    preview_mode       : .scale_to_fill,
-                    device_state       : .disconnecting,
-                    connection_timeout : 10
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation        : .landscapeRight,
+                            device_state       : .streaming,
+                            max_temperature    : 39.7,
+                            min_temperature    : 28.4,
+                            default_image      : image,
+                            battery_percentage : 75
+                        )
                 )
-            Thermal_camera_view( manager )
+                .hide_navigation_interface()
+                .ignoresSafeArea()
+        }
+        .navigationViewStyle(.stack)
+        .previewInterfaceOrientation(.landscapeLeft)
+
+
+        NavigationView
+        {
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation        : .portrait,
+                            device_state       : .streaming,
+                            max_temperature    : 39.7,
+                            min_temperature    : 28.4,
+                            default_image      : image,
+                            battery_percentage : 75
+                        )
+                )
+                .hide_navigation_interface()
+                .ignoresSafeArea()
+        }
+        .navigationViewStyle(.stack)
+        .previewInterfaceOrientation(.portrait)
+
+
+        NavigationView
+        {
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation  : .landscapeLeft,
+                            device_state : .stopping
+                        )
+                )
+                .hide_navigation_interface()
+                .ignoresSafeArea()
+        }
+        .navigationViewStyle(.stack)
+        .previewInterfaceOrientation(.landscapeRight)
+
+
+        NavigationView
+        {
+            Thermal_camera_view(
+                    Recording_manager(
+                            orientation  : .landscapeLeft,
+                            device_state : .disconnecting
+                        )
+                )
                 .hide_navigation_interface()
                 .ignoresSafeArea()
         }
